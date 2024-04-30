@@ -3,6 +3,7 @@ package protocol
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -11,13 +12,11 @@ const (
 	RespArray        = '*'
 	RespError        = '-'
 	RespInteger      = ':'
-	RespMap          = '%'
-	RespSet          = '~'
 )
 
 type RespValue interface {
 	Type() rune
-	Serialize() Message
+	Serialize() string
 }
 
 type Integer struct {
@@ -28,11 +27,8 @@ func (i Integer) Type() rune {
 	return RespInteger
 }
 
-func (i Integer) Serialize() Message {
-	return &IntegerMessage{
-		IntegerMessage: fmt.Sprintf(":%d\r\n", i.Val),
-		RespValue:      i,
-	}
+func (i Integer) Serialize() string {
+	return fmt.Sprintf(":%d\r\n", i.Val)
 }
 
 type SimpleString struct {
@@ -43,11 +39,8 @@ func (ss SimpleString) Type() rune {
 	return RespSimpleString
 }
 
-func (ss SimpleString) Serialize() Message {
-	return &SimpleStringMessage{
-		SimpleStringMessage: fmt.Sprintf("+%s\r\n", ss.Val),
-		RespValue:           ss,
-	}
+func (ss SimpleString) Serialize() string {
+	return fmt.Sprintf("+%s\r\n", ss.Val)
 }
 
 type BulkString struct {
@@ -58,11 +51,8 @@ func (bs BulkString) Type() rune {
 	return RespBulkString
 }
 
-func (bs BulkString) Serialize() Message {
-	return &BulkStringMessage{
-		BulkStringMessage: fmt.Sprintf("$%d\r\n%s\r\n", len(bs.Val), bs.Val),
-		RespValue:         bs,
-	}
+func (bs BulkString) Serialize() string {
+	return fmt.Sprintf("$%d\r\n%s\r\n", len(bs.Val), bs.Val)
 }
 
 type Error struct {
@@ -73,11 +63,8 @@ func (e Error) Type() rune {
 	return RespError
 }
 
-func (e Error) Serialize() Message {
-	return &ErrorMessage{
-		ErrorMessage: fmt.Sprintf("-%s\r\n", e.Val),
-		RespValue:    e,
-	}
+func (e Error) Serialize() string {
+	return fmt.Sprintf("-%s\r\n", e.Val)
 }
 
 type Array struct {
@@ -88,10 +75,35 @@ func (ar Array) Type() rune {
 	return RespArray
 }
 
-func (ar Array) Serialize() Message {
-	message := "*" + strconv.Itoa(len(ar.Val)) + "\r\n"
+func (ar Array) Serialize() string {
+	var sb strings.Builder
+	sb.WriteString("*" + strconv.Itoa(len(ar.Val)) + "\r\n")
 	for _, val := range ar.Val {
-		message += val.Serialize().Message()
+		sb.WriteString(val.Serialize())
 	}
-	return &ArrayMessage{ArrayMessage: message, RespValue: ar}
+	return sb.String()
+}
+
+type Nil struct {
+	Val RespValue
+}
+
+func (n Nil) Type() rune {
+	return RespBulkString
+}
+
+func (n Nil) Serialize() string {
+	return "$-1\r\n"
+}
+
+func Null() string {
+	return "$-1\r\n"
+}
+
+func Ok() string {
+	return "+OK\r\n"
+}
+
+func Err(msg string) string {
+	return Error{Val: fmt.Sprintf("ERROR: %s", msg)}.Serialize()
 }

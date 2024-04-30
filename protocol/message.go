@@ -3,176 +3,235 @@ package protocol
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"unicode"
 )
 
-func getLength(m Message) (int, error) {
-	lenStr, message := "", m.Message()
-	for i := 1; i < len(message[1:]); i++ {
-		r := rune(message[i])
+func getLength(m Deserializer, idx int) (int, int, error) {
+	idx += 1
+	lenStr, message := "", m.Serialized()[idx:]
+	for _, r := range message {
 		if unicode.IsDigit(r) {
 			lenStr += string(r)
+			idx += 1
 		} else {
 			break
 		}
 	}
 	msgLen, err := strconv.Atoi(lenStr)
 	if err != nil {
-		return 0, err
+		return 0, idx, err
 	}
-	fmt.Println(msgLen)
-	return msgLen, nil
+	return msgLen, idx + 2, nil
 }
 
-func checkCRLF(m Message) error {
-	message := m.Message()
+func checkCRLF(m Deserializer, idx int) error {
+	message := m.Serialized()[idx:]
 	if message[len(message)-2:] != "\r\n" {
 		return fmt.Errorf("expected message to end with '\r\n'")
 	}
 	return nil
 }
 
-func checkByte(m Message) error {
-	firstByte := rune(m.Message()[0])
-	if firstByte != m.Value().Type() {
-		return fmt.Errorf("expected message to have first byte %v, got %v", m.Value().Type(), firstByte)
+func checkByte(m Deserializer, idx int) error {
+	firstByte := rune(m.Serialized()[idx])
+	if firstByte != m.Type() {
+		return fmt.Errorf("expected message to have first byte %s, got %s", string(m.Type()), string(firstByte))
 	}
 	return nil
 }
 
-type Message interface {
-	Value() RespValue
-	Message() string
-	Deserialize() (RespValue, error)
-}
+func DeserializeMessage(message string) (RespValue, int, error) {
+	switch message[0] {
+	case RespInteger:
 
-type IntegerMessage struct {
-	IntegerMessage string
-	RespValue      Integer
-}
+		return IntDeserializer{Message: message}.Deserialize(0)
+	case RespSimpleString:
 
-func (im IntegerMessage) Value() RespValue {
-	return im.RespValue
-}
-
-func (im IntegerMessage) Message() string {
-	return im.IntegerMessage
-}
-
-func (im IntegerMessage) Deserialize() (RespValue, error) {
-	if err := checkCRLF(im); err != nil {
-		return nil, err
+		return SimpleStringDeserializer{Message: message}.Deserialize(0)
+	case RespError:
+		return ErrorDeserializer{Message: message}.Deserialize(0)
+	case RespBulkString:
+		return BulkStringDeserializer{Message: message}.Deserialize(0)
+	case RespArray:
+		return ArrayDeserializer{Message: message}.Deserialize(0)
 	}
-	if err := checkByte(im); err != nil {
-		return nil, err
+	return nil, -1, fmt.Errorf("recevied invalid RESP type byte %s", string(message[0]))
+}
+
+type Deserializer interface {
+	Type() rune
+	Serialized() string
+	Deserialize(int) (RespValue, int, error)
+}
+
+type IntDeserializer struct {
+	Message string
+}
+
+func (i IntDeserializer) Type() rune {
+	return RespInteger
+}
+
+func (i IntDeserializer) Serialized() string {
+	return i.Message
+}
+
+func (i IntDeserializer) Deserialize(idx int) (RespValue, int, error) {
+	if err := checkCRLF(i, idx); err != nil {
+		return nil, -1, err
 	}
-	return im.RespValue, nil
-}
-
-type SimpleStringMessage struct {
-	SimpleStringMessage string
-	RespValue           SimpleString
-}
-
-func (ssm SimpleStringMessage) Value() RespValue {
-	return ssm.RespValue
-}
-
-func (ssm SimpleStringMessage) Message() string {
-	return ssm.SimpleStringMessage
-}
-
-func (ssm SimpleStringMessage) Deserialize() (RespValue, error) {
-	if err := checkCRLF(ssm); err != nil {
-		return nil, err
+	if err := checkByte(i, idx); err != nil {
+		return nil, -1, err
 	}
-	if err := checkByte(ssm); err != nil {
-		return nil, err
+	numStr := ""
+	idx += 1
+	for _, r := range i.Message[idx:] {
+		if r != '\r' {
+			numStr += string(r)
+			idx += 1
+		} else {
+			break
+		}
 	}
-	return ssm.RespValue, nil
-}
-
-type BulkStringMessage struct {
-	BulkStringMessage string
-	RespValue         BulkString
-}
-
-func (bsm BulkStringMessage) Value() RespValue {
-	return bsm.RespValue
-}
-
-func (bsm BulkStringMessage) Message() string {
-	return bsm.BulkStringMessage
-}
-
-func (bsm BulkStringMessage) Deserialize() (RespValue, error) {
-	if err := checkCRLF(bsm); err != nil {
-		return nil, err
-	}
-	if err := checkByte(bsm); err != nil {
-		return nil, err
-	}
-	strLen, err := getLength(bsm)
+	val, err := strconv.Atoi(numStr)
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
-	actualLen := len(bsm.RespValue.Val)
-	if strLen != actualLen {
-		return nil, fmt.Errorf("expected bulk string of length %d, got length %d", actualLen, strLen)
+	idx += 2
+	return Integer{Val: val}, idx, nil
+}
+
+type SimpleStringDeserializer struct {
+	Message string
+}
+
+func (s SimpleStringDeserializer) Type() rune {
+	return RespSimpleString
+}
+
+func (s SimpleStringDeserializer) Serialized() string {
+	return s.Message
+}
+
+func (s SimpleStringDeserializer) Deserialize(idx int) (RespValue, int, error) {
+	if err := checkCRLF(s, idx); err != nil {
+		return nil, -1, err
 	}
-	return bsm.RespValue, nil
-}
-
-type ErrorMessage struct {
-	ErrorMessage string
-	RespValue    Error
-}
-
-func (em ErrorMessage) Value() RespValue {
-	return em.RespValue
-}
-
-func (em ErrorMessage) Message() string {
-	return em.ErrorMessage
-}
-
-func (em ErrorMessage) Deserialize() (RespValue, error) {
-	if err := checkCRLF(em); err != nil {
-		return nil, err
+	if err := checkByte(s, idx); err != nil {
+		return nil, -1, err
 	}
-	if err := checkByte(em); err != nil {
-		return nil, err
+	idx += 1
+	str := ""
+	for _, r := range s.Message[idx:] {
+		if r != '\r' {
+			str += string(r)
+			idx += 1
+		} else {
+			break
+		}
 	}
-	return em.RespValue, nil
+	idx += 2
+	return SimpleString{Val: str}, idx, nil
 }
 
-type ArrayMessage struct {
-	ArrayMessage string
-	RespValue    Array
+type ErrorDeserializer struct {
+	Message string
 }
 
-func (am ArrayMessage) Value() RespValue {
-	return am.RespValue
+func (e ErrorDeserializer) Type() rune {
+	return RespError
 }
 
-func (am ArrayMessage) Message() string {
-	return am.ArrayMessage
+func (e ErrorDeserializer) Serialized() string {
+	return e.Message
 }
 
-func (am ArrayMessage) Deserialize() (RespValue, error) {
-	if err := checkCRLF(am); err != nil {
-		return nil, err
+func (e ErrorDeserializer) Deserialize(idx int) (RespValue, int, error) {
+	if err := checkCRLF(e, idx); err != nil {
+		return nil, -1, err
 	}
-	if err := checkByte(am); err != nil {
-		return nil, err
+	if err := checkByte(e, idx); err != nil {
+		return nil, -1, err
 	}
-	arrayLen, err := getLength(am)
+	errStr := ""
+	for _, r := range e.Message[idx:] {
+		if r != '\r' {
+			errStr += string(r)
+			idx += 1
+		} else {
+			break
+		}
+	}
+	idx += 2
+	return Error{Val: errStr}, idx, nil
+}
+
+type BulkStringDeserializer struct {
+	Message string
+}
+
+func (bs BulkStringDeserializer) Type() rune {
+	return RespBulkString
+}
+
+func (bs BulkStringDeserializer) Serialized() string {
+	return bs.Message
+}
+
+func (bs BulkStringDeserializer) Deserialize(idx int) (RespValue, int, error) {
+	if err := checkCRLF(bs, idx); err != nil {
+		return nil, -1, err
+	}
+	if err := checkByte(bs, idx); err != nil {
+		return nil, -1, err
+	}
+	msg := bs.Message[idx:]
+	fields := strings.Split(msg, "\r\n")
+	lengthStr, txt := fields[0][1:], fields[1]
+	length, err := strconv.Atoi(lengthStr)
 	if err != nil {
-		return nil, err
+		return nil, -1, err
 	}
-	actualLen := len(am.RespValue.Val)
-	if arrayLen != actualLen {
-		return nil, fmt.Errorf("array message must have length of %d, got %d", actualLen, arrayLen)
+	if length != len(txt) {
+		return nil, -1, fmt.Errorf("expected bulk string length %v, got %v", len(msg), length)
 	}
-	return am.RespValue, nil
+	idx += len(fields[0]) + 2 + len(txt) + 2
+	return BulkString{Val: txt}, idx, nil
+}
+
+type ArrayDeserializer struct {
+	Message string
+}
+
+func (a ArrayDeserializer) Type() rune {
+	return RespArray
+}
+
+func (a ArrayDeserializer) Serialized() string {
+	return a.Message
+}
+
+func (a ArrayDeserializer) Deserialize(idx int) (RespValue, int, error) {
+	if err := checkCRLF(a, idx); err != nil {
+		return nil, -1, err
+	}
+	if err := checkByte(a, idx); err != nil {
+		return nil, -1, err
+	}
+	numElements, msgIdx, err := getLength(a, idx)
+	if err != nil {
+		return nil, -1, err
+	}
+	arr, arrIdx := make([]RespValue, numElements), 0
+	for arrIdx < numElements {
+		respVal, skip, err := DeserializeMessage(a.Message[msgIdx:])
+		if err != nil {
+			return nil, -1, err
+		}
+		arr[arrIdx] = respVal
+		arrIdx += 1
+		msgIdx += skip
+	}
+	return Array{Val: arr}, msgIdx, nil
 }
