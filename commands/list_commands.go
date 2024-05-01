@@ -16,19 +16,20 @@ func NewLPush(key string, item string) *LPush {
 
 func (lp *LPush) Execute() string {
 	if !store.Store.Contains(lp.key) {
-		store.Store.Set(lp.key, &store.RedisList{Values: []store.RedisString{}})
+		store.Store.Set(lp.key, &store.RedisList{Size: 0})
 	}
-	val, ok := store.Store.Get(lp.key).(*store.RedisList)
+
+	_, ok := store.Store.Get(lp.key).(*store.RedisList)
 	if !ok {
 		return protocol.Err("Value is not a list")
 	}
-	numItems := len(val.Values)
-	store.Store.Get(lp.key).(*store.RedisList).Prepend(lp.item)
-	return protocol.Integer{Val: numItems + 1}.Serialize()
+
+	numItems := store.Store.Get(lp.key).(*store.RedisList).Prepend(lp.item)
+	return protocol.Integer{Val: numItems}.Serialize()
 }
 
-func Lpush(key string, item string) string {
-	return NewLPush(key, item).Execute()
+func Lpush(args ...string) string {
+	return NewLPush(args[0], args[1]).Execute()
 }
 
 type RPush struct {
@@ -42,17 +43,58 @@ func NewRPush(key string, item string) *RPush {
 
 func (rp *RPush) Execute() string {
 	if !store.Store.Contains(rp.key) {
-		store.Store.Set(rp.key, &store.RedisList{Values: []store.RedisString{}})
+		store.Store.Set(rp.key, &store.RedisList{Size: 0})
 	}
-	val, ok := store.Store.Get(rp.key).(*store.RedisList)
+
+	_, ok := store.Store.Get(rp.key).(*store.RedisList)
 	if !ok {
 		return protocol.Err("Value is not a list")
 	}
-	numItems := len(val.Values)
-	store.Store.Get(rp.key).(*store.RedisList).Push(rp.item)
-	return protocol.Integer{Val: numItems + 1}.Serialize()
+
+	numItems := store.Store.Get(rp.key).(*store.RedisList).Append(rp.item)
+	return protocol.Integer{Val: numItems}.Serialize()
 }
 
-func Rpush(key string, item string) string {
-	return NewRPush(key, item).Execute()
+func Rpush(args ...string) string {
+	return NewRPush(args[0], args[1]).Execute()
+}
+
+type LRange struct {
+	Args []string
+}
+
+func NewLRange(args ...string) *LRange {
+	return &LRange{args}
+}
+
+//func (lr *LRange) Execute() string {
+//	if lr.Args == nil || len(lr.Args) < 3 {
+//		return protocol.Err("Not enough arguments (need key, start, stop)")
+//	}
+//	key, start, stop := lr.Args[0], lr.Args[1], lr.Args[2]
+//	start, err := strconv.Atoi(start)
+//	stop, errTwo := strconv.Atoi(stop)
+//	if err != nil || errTwo != nil {
+//		return protocol.Err("Could not start or stop")
+//	}
+//
+//}
+
+//type LPop struct {
+//	key string
+//}
+//
+//func NewLPop(key string) *LPop {
+//	return &LPop{key}
+//}
+//
+//func (lp *LPop) Execute() string {
+//	if !store.Store.Contains(lp.key) {
+//
+//	}
+//}
+
+func init() {
+	CommandRegistry["lpush"] = Lpush
+	CommandRegistry["rpush"] = Rpush
 }

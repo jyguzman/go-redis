@@ -20,7 +20,7 @@ func NewSetCommand(key string, value string) *SetCommand {
 	return &SetCommand{key: key, value: store.RedisString{Value: value}}
 }
 
-func Set(args []string) string {
+func Set(args ...string) string {
 	key, value := args[0], args[1]
 	return NewSetCommand(key, value).Execute()
 }
@@ -41,8 +41,8 @@ func NewGetCommand(key string) *GetCommand {
 	return &GetCommand{key: key}
 }
 
-func Get(key string) string {
-	return NewGetCommand(key).Execute()
+func Get(args ...string) string {
+	return NewGetCommand(args[0]).Execute()
 }
 
 type IncrCommand struct {
@@ -62,16 +62,17 @@ func (ic *IncrCommand) Execute() string {
 	if err != nil {
 		return protocol.Err("Failed to parse value as integer")
 	}
-	store.Store.Set(ic.key, store.RedisString{Value: strconv.Itoa(num + 1)})
-	return protocol.Ok()
+	num += 1
+	store.Store.Set(ic.key, store.RedisString{Value: strconv.Itoa(num)})
+	return protocol.Integer{Val: num}.Serialize()
 }
 
 func NewIncrCommand(key string) *IncrCommand {
 	return &IncrCommand{key: key}
 }
 
-func Incr(key string) string {
-	return NewIncrCommand(key).Execute()
+func Incr(args ...string) string {
+	return NewIncrCommand(args[0]).Execute()
 }
 
 type DecrCommand struct {
@@ -91,14 +92,22 @@ func (dc *DecrCommand) Execute() string {
 	if err != nil {
 		return protocol.Err("Failed to parse value as integer.")
 	}
-	store.Store.Set(dc.key, store.RedisString{Value: strconv.Itoa(num - 1)})
-	return protocol.Ok()
+	num -= 1
+	store.Store.Set(dc.key, store.RedisString{Value: strconv.Itoa(num)})
+	return protocol.Integer{Val: num}.Serialize()
 }
 
 func NewDecrCommand(key string) *DecrCommand {
 	return &DecrCommand{key: key}
 }
 
-func Decr(key string) string {
-	return NewDecrCommand(key).Execute()
+func Decr(args ...string) string {
+	return NewDecrCommand(args[0]).Execute()
+}
+
+func init() {
+	CommandRegistry["set"] = Set
+	CommandRegistry["get"] = Get
+	CommandRegistry["incr"] = Incr
+	CommandRegistry["decr"] = Decr
 }

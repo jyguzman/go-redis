@@ -101,7 +101,7 @@ func Null() string {
 }
 
 func Ok() string {
-	return "+OK\r\n"
+	return SimpleString{Val: "OK"}.Serialize()
 }
 
 func Err(msg string) string {

@@ -5,12 +5,10 @@ import (
 	"go-redis/store"
 )
 
+var CommandRegistry = make(map[string]func(...string) string)
+
 type Command interface {
 	Execute() string
-}
-
-var CommandRegistry = map[string]func(...string) string{
-	"exists": Exists, "set": Set, "get": Get,
 }
 
 type ExistsCommand struct {
@@ -31,7 +29,7 @@ func NewExistsCommand(keys []string) *ExistsCommand {
 	return &ExistsCommand{keys: keys}
 }
 
-func Exists(keys []string) string {
+func Exists(keys ...string) string {
 	return NewExistsCommand(keys).Execute()
 }
 
@@ -54,10 +52,15 @@ func NewDelCommand(keys []string) *DelCommand {
 	return &DelCommand{keys: keys}
 }
 
-func Del(keys []string) string {
+func Del(keys ...string) string {
 	return NewDelCommand(keys).Execute()
 }
 
 type SaveCommand struct {
 	state store.Cache
+}
+
+func init() {
+	CommandRegistry["exists"] = Exists
+	CommandRegistry["del"] = Del
 }

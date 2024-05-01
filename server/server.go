@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go-redis/commands"
 	"go-redis/protocol"
+	"go-redis/store"
 )
 
 func DeserializeRequest(clientRequest string) ([]string, error) {
@@ -25,12 +26,12 @@ func DeserializeRequest(clientRequest string) ([]string, error) {
 	return commandArgs, nil
 }
 
-func DoCommand(args ...string) (string, error) {
-	command := commands.CommandRegistry[args[0]]
-	if command == nil {
-		return "", fmt.Errorf("Unknown command: %s\n", args[0])
+func DoCommand(args ...string) string {
+	command, known := commands.CommandRegistry[args[0]]
+	if !known {
+		return protocol.Err(fmt.Sprintf("Unknown command: %s\n", args[0]))
 	}
-	return command(args), nil
+	return command(args[1:]...)
 }
 
 func main() {
@@ -55,6 +56,26 @@ func main() {
 	//	panic(err)
 	//}
 	//fmt.Println(val, idx)
+	list := store.RedisList{Size: 0, Head: nil, Tail: nil}
+	list.Append(store.RedisString{Value: "Append1"})
+	list.Append(store.RedisString{Value: "Append2"})
+	list.Prepend(store.RedisString{Value: "Prepend1"})
+	list.Append(store.RedisString{Value: "Append3"})
+	list.Prepend(store.RedisString{Value: "Prepend2"})
+	list.Prepend(store.RedisString{Value: "Prepend3"})
+	list.Prepend(store.RedisString{Value: "Prepend4"})
+	list.Append(store.RedisString{Value: "Append4"})
+	ptr := list.Head
+	for ptr != nil {
+		fmt.Print(ptr.Value.Value + " ")
+		ptr = ptr.Next
+	}
+	fmt.Println(DoCommand("get", "name"))
+	fmt.Println(DoCommand("incr", "number"))
+	fmt.Println(DoCommand("incr", "number"))
+	fmt.Println(DoCommand("incr", "number"))
+	fmt.Println(DoCommand("decr", "number"))
+	fmt.Println(DoCommand("get", "number"))
 	fmt.Println(DoCommand("set", "name", "jordie"))
 	fmt.Println(DoCommand("get", "name", "jordie"))
 }
