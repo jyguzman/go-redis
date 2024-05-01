@@ -233,5 +233,5 @@ func (a ArrayDeserializer) Deserialize(idx int) (RespValue, int, error) {
 		arrIdx += 1
 		msgIdx += skip
 	}
-	return Array{Val: arr}, msgIdx, nil
+	return &Array{Val: arr}, msgIdx, nil
 }

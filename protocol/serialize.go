@@ -71,17 +71,28 @@ type Array struct {
 	Val []RespValue
 }
 
-func (ar Array) Type() rune {
+func (ar *Array) Type() rune {
 	return RespArray
 }
 
-func (ar Array) Serialize() string {
+func (ar *Array) Serialize() string {
+	if len(ar.Val) == 0 {
+		return "*-1\r\n"
+	}
 	var sb strings.Builder
 	sb.WriteString("*" + strconv.Itoa(len(ar.Val)) + "\r\n")
 	for _, val := range ar.Val {
 		sb.WriteString(val.Serialize())
 	}
 	return sb.String()
+}
+
+func (ar *Array) Add(rv RespValue) {
+	ar.Val = append(ar.Val, rv)
+}
+
+func NewArray(rvs []RespValue) *Array {
+	return &Array{Val: rvs}
 }
 
 type Nil struct {
