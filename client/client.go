@@ -11,7 +11,7 @@ func serializeRequest(request string) string {
 	for _, s := range strings.Fields(request) {
 		bulkStrings = append(bulkStrings, protocol.BulkString{Val: s})
 	}
-	return protocol.Array{Val: bulkStrings}.Serialize()
+	return protocol.NewArray(bulkStrings).Serialize()
 }
 
 func main() {

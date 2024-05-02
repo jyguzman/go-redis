@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"go-redis/commands"
+	"go-redis/data_types"
 	"go-redis/protocol"
+	"go-redis/store"
+	"strings"
 )
 
 func DeserializeRequest(clientRequest string) ([]string, error) {
@@ -26,11 +29,18 @@ func DeserializeRequest(clientRequest string) ([]string, error) {
 }
 
 func DoCommand(args ...string) string {
-	command, known := commands.CommandRegistry[args[0]]
-	if !known {
-		return protocol.Err(fmt.Sprintf("Unknown command: %s\n", args[0]))
+	name := args[0]
+	command, registered := commands.CommandRegistry[strings.ToLower(name)]
+	if !registered {
+		return protocol.Err(fmt.Sprintf("Unknown command: %s\n", strings.ToUpper(name)))
 	}
-	return command(args[1:]...)
+
+	response, err := command(args...)
+	if err != nil {
+		return protocol.Err(err.Error())
+	}
+
+	return response
 }
 
 func main() {
@@ -38,17 +48,18 @@ func main() {
 	DoCommand("lpush", "new-list", "Prepend1")
 	DoCommand("rpush", "new-list", "Append2")
 	DoCommand("lpush", "new-list", "Prepend2")
-	//list := store.Store.Get("new-list").(*store.RedisList).Head
-	//ptr := list
-	//for ptr != nil {
-	//	fmt.Print(ptr.RedisString.Value + " ")
-	//	ptr = ptr.Next
-	//}
-	fmt.Println()
+	list := store.Store.Get("new-list").(*data_types.RedisList).Head
+	ptr := list
+	for ptr != nil {
+		fmt.Print(ptr.RedisString.Value + " ")
+		ptr = ptr.Next
+	}
+	//fmt.Println()
 	// fmt.Println(store.Store.Get("new-list"))
 	//fmt.Println(DoCommand("lrange", "new-list", "1", "7"))
 	//fmt.Println(DoCommand("lpop", "new-list"))
-	fmt.Println(DoCommand("rpop", "new-list"))
+	//fmt.Println(DoCommand("rpop", "new-list"))
+	//fmt.Println(DoCommand("rpop", "new-list"))
 	//fmt.Println(DoCommand("lrange", "new-list", "0", "7"))
 	//listTwo := store.Store.Get("new-list").(*store.RedisList).Head
 	//ptrTwo := listTwo

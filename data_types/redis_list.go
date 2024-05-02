@@ -1,22 +1,4 @@
-package store
-
-const (
-	STRING int = iota
-	LIST
-	HASH
-	SET
-	NIL
-)
-
-type RedisValue interface {
-	Type() int
-}
-
-type RedisString struct {
-	Value string
-}
-
-func (s RedisString) Type() int { return STRING }
+package data_types
 
 type RedisList struct {
 	Head *RedisListNode
@@ -28,6 +10,10 @@ type RedisListNode struct {
 	RedisString RedisString
 	Next        *RedisListNode
 	Prev        *RedisListNode
+}
+
+func NewRedisList() *RedisList {
+	return &RedisList{Size: 0}
 }
 
 func (l *RedisList) Type() int { return LIST }
@@ -50,13 +36,13 @@ func (l *RedisList) Append(rs RedisString) int {
 
 func (l *RedisList) Prepend(rs RedisString) int {
 	if l.Size == 0 {
-		l.Head = &RedisListNode{RedisString: rs, Next: nil}
+		l.Head = &RedisListNode{RedisString: rs}
 		l.Tail = l.Head
 		l.Size += 1
 		return 1
 	}
 
-	newNode := &RedisListNode{RedisString: rs, Next: nil}
+	newNode := &RedisListNode{RedisString: rs}
 	newNode.Next = l.Head
 	l.Head.Prev = newNode
 	l.Head = newNode
@@ -67,11 +53,13 @@ func (l *RedisList) Prepend(rs RedisString) int {
 func (l *RedisList) PopLeft() string {
 	val := l.Head.RedisString.Value
 	l.Head = l.Head.Next
+	l.Size--
 	return val
 }
 
 func (l *RedisList) Pop() string {
 	val := l.Tail.RedisString.Value
 	l.Tail = l.Tail.Prev
+	l.Size--
 	return val
 }

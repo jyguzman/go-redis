@@ -1,108 +1,152 @@
 package commands
 
 import (
+	"fmt"
+	"go-redis/data_types"
 	"go-redis/protocol"
 	"go-redis/store"
 	"strconv"
 )
 
 type SetCommand struct {
-	key   string
-	value store.RedisString
+	args []string
 }
 
-func (sc *SetCommand) Execute() string {
-	store.Store.Set(sc.key, sc.value)
-	return protocol.Ok()
+func (sc *SetCommand) Args() []string {
+	return sc.args
 }
 
-func NewSetCommand(key string, value string) *SetCommand {
-	return &SetCommand{key: key, value: store.RedisString{Value: value}}
+func (sc *SetCommand) Execute() (string, error) {
+	if sc.args == nil || len(sc.args) < 2 {
+		return "", fmt.Errorf("not enough arguments for SET")
+	}
+	store.Store.Set(sc.args[0], data_types.NewRedisString(sc.args[1]))
+	return protocol.Ok(), nil
 }
 
-func Set(args ...string) string {
-	key, value := args[0], args[1]
-	return NewSetCommand(key, value).Execute()
+func NewSetCommand(args []string) *SetCommand {
+	return &SetCommand{args: args}
+}
+
+func Set(args ...string) (string, error) {
+	return NewSetCommand(args).Execute()
 }
 
 type GetCommand struct {
-	key string
+	args []string
 }
 
-func (gc *GetCommand) Execute() string {
-	val := store.Store.Get(gc.key)
-	if v, ok := val.(store.RedisString); ok {
-		return protocol.BulkString{Val: v.Value}.Serialize()
+func (gc *GetCommand) Args() []string {
+	return gc.args
+}
+
+func (gc *GetCommand) Execute() (string, error) {
+	if gc.args == nil || len(gc.args) < 2 {
+		return "", fmt.Errorf("not enough arguments for GET")
 	}
-	return protocol.Null()
+
+	key := gc.args[1]
+	if !store.Store.Contains(key) {
+		return protocol.NilString(), nil
+	}
+
+	rString, isString := store.Store.Get(key).(data_types.RedisString)
+	if !isString {
+		return "", fmt.Errorf("value not of type string")
+	}
+
+	return protocol.BulkStringResponse(rString.Value), nil
 }
 
-func NewGetCommand(key string) *GetCommand {
-	return &GetCommand{key: key}
+func NewGetCommand(args []string) *GetCommand {
+	return &GetCommand{args: args}
 }
 
-func Get(args ...string) string {
-	return NewGetCommand(args[0]).Execute()
+func Get(args ...string) (string, error) {
+	return NewGetCommand(args).Execute()
 }
 
 type IncrCommand struct {
-	key string
+	args []string
 }
 
-func (ic *IncrCommand) Execute() string {
-	if !store.Store.Contains(ic.key) {
-		store.Store.Set(ic.key, store.RedisString{Value: "0"})
+func (ic *IncrCommand) Args() []string {
+	return ic.args
+}
+
+func (ic *IncrCommand) Execute() (string, error) {
+	if ic.args == nil || len(ic.args) < 2 {
+		return "", fmt.Errorf("not enough arguments for INCR")
 	}
-	val := store.Store.Get(ic.key)
-	rString, ok := val.(store.RedisString)
+
+	key := ic.args[1]
+	if !store.Store.Contains(key) {
+		store.Store.Set(key, data_types.NewRedisString("0"))
+	}
+
+	val := store.Store.Get(key)
+	rString, ok := val.(data_types.RedisString)
 	if !ok {
-		return protocol.Err("Value not of type string")
+		return "", fmt.Errorf("value not of type string")
 	}
+
 	num, err := strconv.Atoi(rString.Value)
 	if err != nil {
-		return protocol.Err("Failed to parse value as integer")
+		return "", fmt.Errorf("failed to parse value as integer")
 	}
+
 	num += 1
-	store.Store.Set(ic.key, store.RedisString{Value: strconv.Itoa(num)})
-	return protocol.Integer{Val: num}.Serialize()
+	store.Store.Set(key, data_types.NewRedisString(strconv.Itoa(num)))
+	return protocol.IntegerResponse(num), nil
 }
 
-func NewIncrCommand(key string) *IncrCommand {
-	return &IncrCommand{key: key}
+func NewIncrCommand(args []string) *IncrCommand {
+	return &IncrCommand{args: args}
 }
 
-func Incr(args ...string) string {
-	return NewIncrCommand(args[0]).Execute()
+func Incr(args ...string) (string, error) {
+	return NewIncrCommand(args).Execute()
 }
 
 type DecrCommand struct {
-	key string
+	args []string
 }
 
-func (dc *DecrCommand) Execute() string {
-	if !store.Store.Contains(dc.key) {
-		store.Store.Set(dc.key, store.RedisString{Value: "0"})
+func (dc *DecrCommand) Args() []string {
+	return dc.args
+}
+
+func (dc *DecrCommand) Execute() (string, error) {
+	if dc.args == nil || len(dc.args) < 2 {
+		return "", fmt.Errorf("not enough arguments for DECR")
 	}
-	val := store.Store.Get(dc.key)
-	rString, ok := val.(store.RedisString)
-	if !ok {
-		return protocol.Err("Value not of type string")
+
+	key := dc.args[1]
+	if !store.Store.Contains(key) {
+		store.Store.Set(key, data_types.NewRedisString("0"))
 	}
+
+	rString, isString := store.Store.Get(key).(data_types.RedisString)
+	if !isString {
+		return "", fmt.Errorf("value not of type string")
+	}
+
 	num, err := strconv.Atoi(rString.Value)
 	if err != nil {
-		return protocol.Err("Failed to parse value as integer.")
+		return "", fmt.Errorf("failed to parse value as integer")
 	}
+
 	num -= 1
-	store.Store.Set(dc.key, store.RedisString{Value: strconv.Itoa(num)})
-	return protocol.Integer{Val: num}.Serialize()
+	store.Store.Set(key, data_types.NewRedisString(strconv.Itoa(num)))
+	return protocol.IntegerResponse(num), nil
 }
 
-func NewDecrCommand(key string) *DecrCommand {
-	return &DecrCommand{key: key}
+func NewDecrCommand(args []string) *DecrCommand {
+	return &DecrCommand{args: args}
 }
 
-func Decr(args ...string) string {
-	return NewDecrCommand(args[0]).Execute()
+func Decr(args ...string) (string, error) {
+	return NewDecrCommand(args).Execute()
 }
 
 func init() {

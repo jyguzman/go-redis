@@ -12,6 +12,7 @@ const (
 	RespArray        = '*'
 	RespError        = '-'
 	RespInteger      = ':'
+	RespNil          = '1'
 )
 
 type RespValue interface {
@@ -100,15 +101,27 @@ type Nil struct {
 }
 
 func (n Nil) Type() rune {
-	return RespBulkString
+	return RespNil
 }
 
 func (n Nil) Serialize() string {
+	_, isArray := n.Val.(*Array)
+	if isArray {
+		return "*-1\r\n"
+	}
 	return "$-1\r\n"
 }
 
 func Null() string {
 	return "$-1\r\n"
+}
+
+func NilString() string {
+	return "$-1\r\n"
+}
+
+func NilArray() string {
+	return "*-1\r\n"
 }
 
 func Ok() string {
@@ -117,4 +130,12 @@ func Ok() string {
 
 func Err(msg string) string {
 	return Error{Val: fmt.Sprintf("ERROR: %s", msg)}.Serialize()
+}
+
+func IntegerResponse(i int) string {
+	return Integer{Val: i}.Serialize()
+}
+
+func BulkStringResponse(s string) string {
+	return BulkString{Val: s}.Serialize()
 }

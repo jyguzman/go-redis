@@ -5,54 +5,63 @@ import (
 	"go-redis/store"
 )
 
-var CommandRegistry = make(map[string]func(...string) string)
+var CommandRegistry = make(map[string]func(...string) (string, error))
 
 type Command interface {
-	Execute() string
+	Args() []string
+	Execute() (string, error)
 }
 
 type ExistsCommand struct {
-	keys []string
+	args []string
 }
 
-func (ec *ExistsCommand) Execute() string {
+func (ec *ExistsCommand) Args() []string {
+	return ec.args
+}
+
+func (ec *ExistsCommand) Execute() (string, error) {
 	numExists := 0
-	for _, key := range ec.keys {
+	for _, key := range ec.args {
 		if store.Store.Contains(key) {
 			numExists++
 		}
 	}
-	return protocol.Integer{Val: numExists}.Serialize()
+	return protocol.IntegerResponse(numExists), nil
 }
 
 func NewExistsCommand(keys []string) *ExistsCommand {
-	return &ExistsCommand{keys: keys}
+	return &ExistsCommand{args: keys}
 }
 
-func Exists(keys ...string) string {
+func Exists(keys ...string) (string, error) {
 	return NewExistsCommand(keys).Execute()
 }
 
 type DelCommand struct {
-	keys []string
+	args []string
 }
 
-func (dc *DelCommand) Execute() string {
+func (dc *DelCommand) Args() []string {
+	return dc.args
+}
+
+func (dc *DelCommand) Execute() (string, error) {
 	numDeleted := 0
-	for _, key := range dc.keys {
+	for _, key := range dc.args {
 		if store.Store.Contains(key) {
 			store.Store.Remove(key)
 			numDeleted++
 		}
 	}
-	return protocol.Integer{Val: numDeleted}.Serialize()
+	return protocol.IntegerResponse(numDeleted), nil
 }
 
-func NewDelCommand(keys []string) *DelCommand {
-	return &DelCommand{keys: keys}
+func NewDelCommand(args []string) *DelCommand {
+	return &DelCommand{args: args}
 }
 
-func Del(keys ...string) string {
+func Del(keys ...string) (string, error) {
 	return NewDelCommand(keys).Execute()
 }
 
