@@ -10,6 +10,9 @@ import (
 func getLength(m Deserializer, idx int) (int, int, error) {
 	idx += 1
 	lenStr, message := "", m.Serialized()[idx:]
+	if message[1:3] == "-1" {
+		return -1, 5, nil
+	}
 	for _, r := range message {
 		if unicode.IsDigit(r) {
 			lenStr += string(r)
@@ -187,11 +190,15 @@ func (bs BulkStringDeserializer) Deserialize(idx int) (RespValue, int, error) {
 		return nil, -1, err
 	}
 	msg := bs.Message[idx:]
+	//length, skip, err := getLength(bs, idx)
 	fields := strings.Split(msg, "\r\n")
 	lengthStr, txt := fields[0][1:], fields[1]
 	length, err := strconv.Atoi(lengthStr)
 	if err != nil {
 		return nil, -1, err
+	}
+	if length == -1 {
+		return Nil{NilType: RespBulkString}, 5, nil
 	}
 	if length != len(txt) {
 		return nil, -1, fmt.Errorf("expected bulk string length %v, got %v", len(msg), length)
@@ -220,6 +227,9 @@ func (a ArrayDeserializer) Deserialize(idx int) (RespValue, int, error) {
 		return nil, -1, err
 	}
 	numElements, msgIdx, err := getLength(a, idx)
+	if numElements == -1 {
+		return Nil{NilType: RespArray}, msgIdx, nil
+	}
 	if err != nil {
 		return nil, -1, err
 	}

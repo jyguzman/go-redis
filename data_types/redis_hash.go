@@ -18,3 +18,11 @@ func (h *RedisHash) Get(key string) (RedisValue, bool) {
 	val, ok := h.Pairs[key]
 	return val, ok
 }
+
+func (h *RedisHash) Delete(key string) int {
+	if _, ok := h.Get(key); ok {
+		delete(h.Pairs, key)
+		return 1
+	}
+	return 0
+}

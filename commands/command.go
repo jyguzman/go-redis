@@ -65,6 +65,19 @@ func Del(keys ...string) (string, error) {
 	return NewDelCommand(keys).Execute()
 }
 
+type FlushDBCommand struct {
+	args []string
+}
+
+func (fdc *FlushDBCommand) Args() []string {
+	return fdc.args
+}
+
+func (fdc *FlushDBCommand) Execute() (string, error) {
+	numFlushed := 0
+	return protocol.IntegerResponse(numFlushed), nil
+}
+
 type SaveCommand struct {
 	state store.Cache
 }

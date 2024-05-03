@@ -21,7 +21,7 @@ func (lp *LPush) Execute() (string, error) {
 		return "", fmt.Errorf("not enough arguments for LPUSH")
 	}
 
-	key, item := lp.args[1], lp.args[2]
+	key, items := lp.args[1], lp.args[2:]
 	if !store.Store.Contains(key) {
 		store.Store.Set(key, data_types.NewRedisList())
 	}
@@ -31,7 +31,10 @@ func (lp *LPush) Execute() (string, error) {
 		return "", fmt.Errorf("value is not a list")
 	}
 
-	numItems := store.Store.Get(key).(*data_types.RedisList).Prepend(data_types.NewRedisString(item))
+	numItems := 0
+	for _, item := range items {
+		numItems = store.Store.Get(key).(*data_types.RedisList).Prepend(data_types.NewRedisString(item))
+	}
 	return protocol.IntegerResponse(numItems), nil
 }
 
@@ -56,7 +59,7 @@ func (rp *RPush) Execute() (string, error) {
 		return "", fmt.Errorf("not enough arguments for RPUSH")
 	}
 
-	key, item := rp.args[1], rp.args[2]
+	key, items := rp.args[1], rp.args[2:]
 	if !store.Store.Contains(key) {
 		store.Store.Set(key, data_types.NewRedisList())
 	}
@@ -66,7 +69,10 @@ func (rp *RPush) Execute() (string, error) {
 		return "", fmt.Errorf("value is not a list")
 	}
 
-	numItems := store.Store.Get(key).(*data_types.RedisList).Append(data_types.NewRedisString(item))
+	numItems := 0
+	for _, item := range items {
+		numItems = store.Store.Get(key).(*data_types.RedisList).Append(data_types.NewRedisString(item))
+	}
 	return protocol.IntegerResponse(numItems), nil
 }
 
@@ -87,11 +93,11 @@ func (lr *LRange) Args() []string {
 }
 
 func (lr *LRange) Execute() (string, error) {
-	if lr.args == nil || len(lr.args) < 3 {
+	if lr.args == nil || len(lr.args) < 4 {
 		return "", fmt.Errorf("not enough arguments for LRANGE (need key, start, stop)")
 	}
 
-	key, startStr, stopStr := lr.args[0], lr.args[1], lr.args[2]
+	key, startStr, stopStr := lr.args[1], lr.args[2], lr.args[3]
 	start, err := strconv.Atoi(startStr)
 	stop, errTwo := strconv.Atoi(stopStr)
 	if err != nil || errTwo != nil {

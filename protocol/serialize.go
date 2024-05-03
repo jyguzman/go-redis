@@ -12,7 +12,6 @@ const (
 	RespArray        = '*'
 	RespError        = '-'
 	RespInteger      = ':'
-	RespNil          = '1'
 )
 
 type RespValue interface {
@@ -97,31 +96,26 @@ func NewArray(rvs []RespValue) *Array {
 }
 
 type Nil struct {
-	Val RespValue
+	NilType rune
 }
 
 func (n Nil) Type() rune {
-	return RespNil
+	return n.NilType
 }
 
 func (n Nil) Serialize() string {
-	_, isArray := n.Val.(*Array)
-	if isArray {
+	if n.NilType == RespArray {
 		return "*-1\r\n"
 	}
 	return "$-1\r\n"
 }
 
-func Null() string {
-	return "$-1\r\n"
-}
-
 func NilString() string {
-	return "$-1\r\n"
+	return Nil{NilType: RespBulkString}.Serialize()
 }
 
 func NilArray() string {
-	return "*-1\r\n"
+	return Nil{NilType: RespArray}.Serialize()
 }
 
 func Ok() string {

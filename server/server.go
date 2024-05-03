@@ -1,16 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"go-redis/commands"
-	"go-redis/data_types"
 	"go-redis/protocol"
-	"go-redis/store"
+	"log"
+	"net"
 	"strings"
 )
 
 func DeserializeRequest(clientRequest string) ([]string, error) {
 	deserialized, _, err := protocol.DeserializeMessage(clientRequest)
+	if err != nil {
+		return nil, err
+	}
 	respArray, ok := deserialized.(*protocol.Array)
 	if !ok {
 		return nil, fmt.Errorf("response from client must be array")
@@ -24,7 +28,6 @@ func DeserializeRequest(clientRequest string) ([]string, error) {
 		}
 		commandArgs[i] = bs.Val
 	}
-	fmt.Println(commandArgs, err)
 	return commandArgs, nil
 }
 
@@ -43,28 +46,40 @@ func DoCommand(args ...string) string {
 	return response
 }
 
-func main() {
-	DoCommand("rpush", "new-list", "Append1")
-	DoCommand("lpush", "new-list", "Prepend1")
-	DoCommand("rpush", "new-list", "Append2")
-	DoCommand("lpush", "new-list", "Prepend2")
-	list := store.Store.Get("new-list").(*data_types.RedisList).Head
-	ptr := list
-	for ptr != nil {
-		fmt.Print(ptr.RedisString.Value + " ")
-		ptr = ptr.Next
+func handleConnection(conn net.Conn) {
+	defer conn.Close()
+	for {
+		buffer := make([]byte, 1024)
+		n, err := bufio.NewReader(conn).Read(buffer)
+		if err != nil {
+			log.Println(err)
+		}
+		fmt.Println("got " + string(buffer[:n]))
+		desReq, reqErr := DeserializeRequest(string(buffer[:n]))
+		if reqErr != nil {
+			log.Println(reqErr)
+		}
+		res := DoCommand(desReq...)
+		fmt.Printf("req: %v", desReq)
+		_, writeErr := conn.Write([]byte(res))
+		if writeErr != nil {
+			log.Println(writeErr)
+		}
 	}
-	//fmt.Println()
-	// fmt.Println(store.Store.Get("new-list"))
-	//fmt.Println(DoCommand("lrange", "new-list", "1", "7"))
-	//fmt.Println(DoCommand("lpop", "new-list"))
-	//fmt.Println(DoCommand("rpop", "new-list"))
-	//fmt.Println(DoCommand("rpop", "new-list"))
-	//fmt.Println(DoCommand("lrange", "new-list", "0", "7"))
-	//listTwo := store.Store.Get("new-list").(*store.RedisList).Head
-	//ptrTwo := listTwo
-	//for ptrTwo != nil {
-	//	fmt.Print(ptrTwo.RedisString.Value + " ")
-	//	ptrTwo = ptrTwo.Next
-	//}
+
+}
+
+func main() {
+	listener, err := net.Listen("tcp", "localhost:6379")
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Print(err)
+			continue
+		}
+		go handleConnection(conn)
+	}
 }

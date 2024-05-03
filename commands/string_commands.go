@@ -17,10 +17,10 @@ func (sc *SetCommand) Args() []string {
 }
 
 func (sc *SetCommand) Execute() (string, error) {
-	if sc.args == nil || len(sc.args) < 2 {
+	if sc.args == nil || len(sc.args) < 3 {
 		return "", fmt.Errorf("not enough arguments for SET")
 	}
-	store.Store.Set(sc.args[0], data_types.NewRedisString(sc.args[1]))
+	store.Store.Set(sc.args[1], data_types.NewRedisString(sc.args[2]))
 	return protocol.Ok(), nil
 }
 
@@ -47,6 +47,7 @@ func (gc *GetCommand) Execute() (string, error) {
 
 	key := gc.args[1]
 	if !store.Store.Contains(key) {
+		fmt.Println("im here")
 		return protocol.NilString(), nil
 	}
 
