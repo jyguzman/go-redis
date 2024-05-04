@@ -20,14 +20,10 @@ func serializeRequest(request string) string {
 }
 
 type Client struct {
-	history []string
-	host    string
-	port    int
-	conn    net.Conn
-}
-
-func (c *Client) History() []string {
-	return c.history
+	host string
+	port int
+	id   string
+	conn net.Conn
 }
 
 func (c *Client) Connect(host string, port int) error {
@@ -54,10 +50,9 @@ func (c *Client) Close() {
 
 func (c *Client) Communicate() {
 	var input string
+	fmt.Printf("%s:%d> ", c.host, c.port)
 	stdin := bufio.NewScanner(os.Stdin)
-	fmt.Printf("127.0.0.1:6379> ")
 	for stdin.Scan() {
-		fmt.Printf("127.0.0.1:6379> ")
 		input = stdin.Text()
 		if input == "exit" {
 			break
@@ -66,7 +61,6 @@ func (c *Client) Communicate() {
 		if writeErr != nil {
 			log.Fatal(writeErr)
 		}
-		c.history = append(c.history, input)
 		buffer := make([]byte, 1024)
 		n, err := bufio.NewReader(c.conn).Read(buffer)
 		if err != nil {
@@ -76,7 +70,8 @@ func (c *Client) Communicate() {
 		if desErr != nil {
 			log.Println(desErr)
 		}
-		displayResponse(res)
+		fmt.Print(res.Format())
+		fmt.Printf("%s:%d> ", c.host, c.port)
 	}
 }
 

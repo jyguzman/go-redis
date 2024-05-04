@@ -1,24 +1,28 @@
 package data_types
 
 type RedisSet struct {
-	Values map[string]RedisString
-	Size   int
+	values map[string]RedisString
+	size   int
 }
 
-func (set *RedisSet) Type() int {
-	return SET
+func (set *RedisSet) Type() int { return SET }
+
+func (set *RedisSet) Size() int { return set.size }
+
+func (set *RedisSet) Values() map[string]RedisString {
+	return set.values
 }
 
 func NewRedisSet() *RedisSet {
-	return &RedisSet{Values: make(map[string]RedisString), Size: 0}
+	return &RedisSet{values: make(map[string]RedisString), size: 0}
 }
 
 func (set *RedisSet) Add(value string) int {
 	if set.Contains(value) {
 		return 0
 	}
-	set.Values[value] = NewRedisString(value)
-	set.Size++
+	set.values[value] = NewRedisString(value)
+	set.size++
 	return 1
 }
 
@@ -26,12 +30,12 @@ func (set *RedisSet) Remove(value string) int {
 	if !set.Contains(value) {
 		return 0
 	}
-	delete(set.Values, value)
-	set.Size--
+	delete(set.values, value)
+	set.size--
 	return 1
 }
 
 func (set *RedisSet) Contains(value string) bool {
-	_, ok := set.Values[value]
+	_, ok := set.values[value]
 	return ok
 }

@@ -17,11 +17,11 @@ func (hs *HSetCommand) Args() []string {
 
 func (hs *HSetCommand) Execute() (string, error) {
 	if len(hs.args) < 4 {
-		return "", fmt.Errorf("not enough arguments for HSET")
+		return "", fmt.Errorf("wrong number of arguments for HSET")
 	}
 
 	if len(hs.args[2:])%2 != 0 {
-		return "", fmt.Errorf("must provide key-value pairs")
+		return "", fmt.Errorf("wrong number of arguments for HSET")
 	}
 
 	key := hs.args[1]
@@ -62,7 +62,7 @@ func (hs *HGetCommand) Args() []string {
 
 func (hs *HGetCommand) Execute() (string, error) {
 	if len(hs.args) < 3 {
-		return "", fmt.Errorf("not enough arguments for HGET")
+		return "", fmt.Errorf("wrong number of arguments for HGET")
 	}
 
 	key := hs.args[0]
@@ -101,7 +101,7 @@ func (hs *HDelCommand) Args() []string {
 
 func (hs *HDelCommand) Execute() (string, error) {
 	if len(hs.args) < 4 {
-		return "", fmt.Errorf("not enough arguments for HDEL")
+		return "", fmt.Errorf("wrong number of arguments for HDEL")
 	}
 	key, fields := hs.args[1], hs.args[2:]
 	if !store.Store.Contains(key) {
@@ -129,8 +129,46 @@ func HDel(args ...string) (string, error) {
 	return NewHDelCommand(args).Execute()
 }
 
+type HKeysCommand struct {
+	args []string
+}
+
+func (hs *HKeysCommand) Args() []string {
+	return hs.args
+}
+
+func (hs *HKeysCommand) Execute() (string, error) {
+	if len(hs.args) != 2 {
+		return "", fmt.Errorf("wrong number of arguments for HKEYS")
+	}
+
+	if !store.Store.Contains(hs.args[1]) {
+		return protocol.NilArray(), nil
+	}
+
+	hash, isHash := store.Store.Get(hs.args[1]).(*data_types.RedisHash)
+	if !isHash {
+		return "", fmt.Errorf("value not of type hash")
+	}
+
+	array := protocol.NewArray([]protocol.RespValue{})
+	for _, key := range hash.Keys() {
+		array.Add(protocol.BulkString{Val: key})
+	}
+	return array.Serialize(), nil
+}
+
+func NewHKeysCommand(args []string) *HKeysCommand {
+	return &HKeysCommand{args}
+}
+
+func HKeys(args ...string) (string, error) {
+	return NewHKeysCommand(args).Execute()
+}
+
 func init() {
 	CommandRegistry["hset"] = Hset
 	CommandRegistry["hget"] = HGet
 	CommandRegistry["hdel"] = HDel
+	CommandRegistry["hkeys"] = HKeys
 }

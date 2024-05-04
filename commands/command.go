@@ -1,8 +1,10 @@
 package commands
 
 import (
+	"fmt"
 	"go-redis/protocol"
 	"go-redis/store"
+	"strings"
 )
 
 var CommandRegistry = make(map[string]func(...string) (string, error))
@@ -74,8 +76,27 @@ func (fdc *FlushDBCommand) Args() []string {
 }
 
 func (fdc *FlushDBCommand) Execute() (string, error) {
-	numFlushed := 0
-	return protocol.IntegerResponse(numFlushed), nil
+	for _, key := range store.Store.Keys() {
+		store.Store.Remove(key)
+	}
+	return protocol.Ok(), nil
+}
+
+func NewFlushDBCommand(args []string) *FlushDBCommand {
+	return &FlushDBCommand{args: args}
+}
+
+func FlushDB(args ...string) (string, error) {
+	if len(args) < 2 {
+		return "", fmt.Errorf("wrong number of arguments for FLUSHDB")
+	}
+	if strings.ToLower(args[1]) == "sync" {
+		return NewFlushDBCommand(args).Execute()
+	}
+	if strings.ToLower(args[1]) == "async" {
+		go NewFlushDBCommand(args).Execute()
+	}
+	return "", fmt.Errorf("invalid argument for FLUSHDB: %s", args[1])
 }
 
 type SaveCommand struct {
@@ -85,4 +106,5 @@ type SaveCommand struct {
 func init() {
 	CommandRegistry["exists"] = Exists
 	CommandRegistry["del"] = Del
+	CommandRegistry["flushdb"] = FlushDB
 }

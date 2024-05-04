@@ -8,6 +8,14 @@ type Cache struct {
 
 var Store = &Cache{store: make(map[string]data_types.RedisValue)}
 
+func (c *Cache) Keys() []string {
+	keys := make([]string, len(c.store))
+	for k := range c.store {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func (c *Cache) Contains(key string) bool {
 	return c.store[key] != nil
 }

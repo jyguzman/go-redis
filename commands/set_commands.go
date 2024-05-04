@@ -18,7 +18,7 @@ func (sc *SaddCommand) Args() []string {
 
 func (sc *SaddCommand) Execute() (string, error) {
 	if sc.args == nil || len(sc.args) < 3 {
-		return "", fmt.Errorf("not enough arguments for SADD")
+		return "", fmt.Errorf("wrong number of arguments for SADD")
 	}
 
 	key, items := sc.args[1], sc.args[2:]
@@ -57,7 +57,7 @@ func (sc *SremCommand) Args() []string {
 
 func (sc *SremCommand) Execute() (string, error) {
 	if sc.args == nil || len(sc.args) < 3 {
-		return "", fmt.Errorf("not enough arguments for SREM")
+		return "", fmt.Errorf("wrong number of arguments for SREM")
 	}
 
 	key, items := sc.args[1], sc.args[2:]
@@ -96,7 +96,7 @@ func (sc *SMembersCommand) Args() []string {
 
 func (sc *SMembersCommand) Execute() (string, error) {
 	if sc.args == nil || len(sc.args) < 2 {
-		return "", fmt.Errorf("not enough arguments for SMEMBERS")
+		return "", fmt.Errorf("wrong number of arguments for SMEMBERS")
 	}
 	key := sc.args[1]
 	if !store.Store.Contains(key) {
@@ -109,7 +109,7 @@ func (sc *SMembersCommand) Execute() (string, error) {
 	}
 
 	array := protocol.NewArray([]protocol.RespValue{})
-	for _, member := range set.Values {
+	for _, member := range set.Values() {
 		array.Add(protocol.BulkString{Val: member.Value})
 	}
 	return array.Serialize(), nil
@@ -133,7 +133,7 @@ func (sc *SCardCommand) Args() []string {
 
 func (sc *SCardCommand) Execute() (string, error) {
 	if sc.args == nil || len(sc.args) < 2 {
-		return "", fmt.Errorf("not enough arguments for SCARD")
+		return "", fmt.Errorf("wrong number of arguments for SCARD")
 	}
 
 	key := sc.args[1]
@@ -146,7 +146,7 @@ func (sc *SCardCommand) Execute() (string, error) {
 		return "", errors.New("value not of type set")
 	}
 
-	return protocol.IntegerResponse(set.Size), nil
+	return protocol.IntegerResponse(set.Size()), nil
 }
 
 func NewSCardCommand(args []string) *SCardCommand {
@@ -167,7 +167,7 @@ func (sc *SIsMemberCommand) Args() []string {
 
 func (sc *SIsMemberCommand) Execute() (string, error) {
 	if sc.args == nil || len(sc.args) < 2 {
-		return "", fmt.Errorf("not enough arguments for SISMEMBER")
+		return "", fmt.Errorf("wrong number of arguments for SISMEMBER")
 	}
 
 	key, items := sc.args[1], sc.args[2:]

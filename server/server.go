@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func DeserializeRequest(clientRequest string) ([]string, error) {
+func deserializeRequest(clientRequest string) ([]string, error) {
 	deserialized, _, err := protocol.DeserializeMessage(clientRequest)
 	if err != nil {
 		return nil, err
@@ -53,17 +53,17 @@ func handleConnection(conn net.Conn) {
 		n, err := bufio.NewReader(conn).Read(buffer)
 		if err != nil {
 			log.Println(err)
+			return
 		}
-		fmt.Println("got " + string(buffer[:n]))
-		desReq, reqErr := DeserializeRequest(string(buffer[:n]))
+		desReq, reqErr := deserializeRequest(string(buffer[:n]))
 		if reqErr != nil {
 			log.Println(reqErr)
-		}
-		res := DoCommand(desReq...)
-		fmt.Printf("req: %v", desReq)
-		_, writeErr := conn.Write([]byte(res))
-		if writeErr != nil {
-			log.Println(writeErr)
+		} else {
+			res := DoCommand(desReq...)
+			_, writeErr := conn.Write([]byte(res))
+			if writeErr != nil {
+				log.Println(writeErr)
+			}
 		}
 	}
 

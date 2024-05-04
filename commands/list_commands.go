@@ -17,8 +17,8 @@ func (lp *LPush) Args() []string {
 }
 
 func (lp *LPush) Execute() (string, error) {
-	if lp.args == nil || len(lp.args) < 2 {
-		return "", fmt.Errorf("not enough arguments for LPUSH")
+	if lp.args == nil || len(lp.args) < 3 {
+		return "", fmt.Errorf("wrong number of arguments for LPUSH")
 	}
 
 	key, items := lp.args[1], lp.args[2:]
@@ -55,8 +55,8 @@ func (rp *RPush) Args() []string {
 }
 
 func (rp *RPush) Execute() (string, error) {
-	if rp.args == nil || len(rp.args) < 2 {
-		return "", fmt.Errorf("not enough arguments for RPUSH")
+	if rp.args == nil || len(rp.args) < 3 {
+		return "", fmt.Errorf("wrong number of arguments for RPUSH")
 	}
 
 	key, items := rp.args[1], rp.args[2:]
@@ -93,30 +93,63 @@ func (lr *LRange) Args() []string {
 }
 
 func (lr *LRange) Execute() (string, error) {
-	if lr.args == nil || len(lr.args) < 4 {
-		return "", fmt.Errorf("not enough arguments for LRANGE (need key, start, stop)")
+	if lr.args == nil || len(lr.args) != 4 {
+		return "", fmt.Errorf("wrong number of arguments for LRANGE (need key, start, stop)")
 	}
 
 	key, startStr, stopStr := lr.args[1], lr.args[2], lr.args[3]
 	start, err := strconv.Atoi(startStr)
-	stop, errTwo := strconv.Atoi(stopStr)
-	if err != nil || errTwo != nil {
-		return "", fmt.Errorf("could not parse start or stop as integers")
+	if err != nil {
+		return "", fmt.Errorf("could not parse start as integer")
+	}
+	stop, err := strconv.Atoi(stopStr)
+	if err != nil {
+		return "", fmt.Errorf("could not parse stop as integer")
 	}
 
 	if !store.Store.Contains(key) {
 		return protocol.NilArray(), nil
 	}
 
-	ptr := store.Store.Get(key).(*data_types.RedisList).Head
-	for i := 0; i < start; i++ {
-		ptr = ptr.Next
+	list, isList := store.Store.Get(key).(*data_types.RedisList)
+	if !isList {
+		return "", fmt.Errorf("value is not of type list")
 	}
+
 	array := &protocol.Array{Val: []protocol.RespValue{}}
-	for i := 0; ptr != nil && i < (stop-start)+1; i++ {
-		array.Add(protocol.BulkString{Val: ptr.RedisString.Value})
-		ptr = ptr.Next
+
+	ptr := list.Head
+	if start >= 0 {
+		for i := 0; i < start; i++ {
+			ptr = ptr.Next
+		}
+
+		if stop < 0 {
+			stop += list.Size()
+		}
+
+		for i := start; i < stop+1 && ptr != nil; i++ {
+			array.Add(protocol.BulkString{Val: ptr.RedisString.Value})
+			ptr = ptr.Next
+		}
+
+		return array.Serialize(), nil
 	}
+
+	if stop > 0 {
+		return protocol.NilArray(), nil
+	}
+
+	ptr = list.Tail
+	for i := -1; i > start; i-- {
+		ptr = ptr.Prev
+	}
+
+	for i := start; i >= stop; i-- {
+		array.Add(protocol.BulkString{Val: ptr.RedisString.Value})
+		ptr = ptr.Prev
+	}
+
 	return array.Serialize(), nil
 }
 
@@ -138,7 +171,7 @@ func NewLPop(args []string) *LPop {
 
 func (lp *LPop) Execute() (string, error) {
 	if lp.args == nil || len(lp.args) < 2 {
-		return "", fmt.Errorf("not enough arguments for LPOP")
+		return "", fmt.Errorf("wrong number of arguments for LPOP")
 	}
 
 	key := lp.args[0]
@@ -164,7 +197,7 @@ func NewRPop(args []string) *RPop {
 
 func (rp *RPop) Execute() (string, error) {
 	if rp.args == nil || len(rp.args) < 2 {
-		return "", fmt.Errorf("not enough arguments for RPOP")
+		return "", fmt.Errorf("wrong number of arguments for RPOP")
 	}
 
 	key := rp.args[0]
@@ -189,8 +222,8 @@ func (li *LIndex) Args() []string {
 }
 
 func (li *LIndex) Execute() (string, error) {
-	if li.args == nil || len(li.args) < 3 {
-		return "", fmt.Errorf("not enough arguments for LINDEX")
+	if li.args == nil || len(li.args) != 3 {
+		return "", fmt.Errorf("wrong number of arguments for LINDEX")
 	}
 
 	key := li.args[1]
@@ -209,8 +242,12 @@ func (li *LIndex) Execute() (string, error) {
 		return "", fmt.Errorf("value is not of type list")
 	}
 
-	if index < 0 || index >= list.Size {
-		return protocol.NilString(), nil
+	if index < 0 {
+		index += list.Size()
+	}
+
+	if index >= list.Size() {
+		return protocol.NilArray(), nil
 	}
 
 	ptr := list.Head

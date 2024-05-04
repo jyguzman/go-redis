@@ -17,6 +17,7 @@ const (
 type RespValue interface {
 	Type() rune
 	Serialize() string
+	Format() string
 }
 
 type Integer struct {
@@ -31,6 +32,10 @@ func (i Integer) Serialize() string {
 	return fmt.Sprintf(":%d\r\n", i.Val)
 }
 
+func (i Integer) Format() string {
+	return fmt.Sprintf("(integer) %d\n", i.Val)
+}
+
 type SimpleString struct {
 	Val string
 }
@@ -41,6 +46,10 @@ func (ss SimpleString) Type() rune {
 
 func (ss SimpleString) Serialize() string {
 	return fmt.Sprintf("+%s\r\n", ss.Val)
+}
+
+func (ss SimpleString) Format() string {
+	return fmt.Sprintf("+%s\n", ss.Val)
 }
 
 type BulkString struct {
@@ -55,6 +64,10 @@ func (bs BulkString) Serialize() string {
 	return fmt.Sprintf("$%d\r\n%s\r\n", len(bs.Val), bs.Val)
 }
 
+func (bs BulkString) Format() string {
+	return fmt.Sprintf("\"%s\"\n", bs.Val)
+}
+
 type Error struct {
 	Val string
 }
@@ -67,6 +80,10 @@ func (e Error) Serialize() string {
 	return fmt.Sprintf("-%s\r\n", e.Val)
 }
 
+func (e Error) Format() string {
+	return fmt.Sprintf("-%s\n", e.Val)
+}
+
 type Array struct {
 	Val []RespValue
 }
@@ -77,12 +94,23 @@ func (ar *Array) Type() rune {
 
 func (ar *Array) Serialize() string {
 	if len(ar.Val) == 0 {
-		return "*-1\r\n"
+		return NilArray()
 	}
 	var sb strings.Builder
 	sb.WriteString("*" + strconv.Itoa(len(ar.Val)) + "\r\n")
 	for _, val := range ar.Val {
 		sb.WriteString(val.Serialize())
+	}
+	return sb.String()
+}
+
+func (ar *Array) Format() string {
+	if len(ar.Val) == 0 {
+		return Nil{RespArray}.Format()
+	}
+	var sb strings.Builder
+	for i, val := range ar.Val {
+		sb.WriteString(fmt.Sprintf("%d) %s", i+1, val.Format()))
 	}
 	return sb.String()
 }
@@ -108,6 +136,10 @@ func (n Nil) Serialize() string {
 		return "*-1\r\n"
 	}
 	return "$-1\r\n"
+}
+
+func (n Nil) Format() string {
+	return "(nil)\n"
 }
 
 func NilString() string {

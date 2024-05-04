@@ -10,7 +10,7 @@ import (
 func getLength(m Deserializer, idx int) (int, int, error) {
 	idx += 1
 	lenStr, message := "", m.Serialized()[idx:]
-	if message[1:3] == "-1" {
+	if message[0:2] == "-1" {
 		return -1, 5, nil
 	}
 	for _, r := range message {
